@@ -4,29 +4,9 @@ const AdminLogin = ({ setUser }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // 🔐 Demo users (later replace with backend API)
-  const users = [
-    {
-      email: "admin@kmc.gov.in",
-      password: "admin123",
-      role: "system_manager",
-    },
-    {
-      email: "health@kmc.gov.in",
-      password: "health123",
-      role: "department_manager",
-      department: "Health Department",
-    },
-    {
-      email: "sanitation@kmc.gov.in",
-      password: "san123",
-      role: "department_manager",
-      department: "Sanitation Department",
-    },
-  ];
-
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError("");
 
     if (!email || !password) {
@@ -34,17 +14,33 @@ const AdminLogin = ({ setUser }) => {
       return;
     }
 
-    const user = users.find(
-      (u) => u.email === email && u.password === password
-    );
+    setLoading(true);
 
-    if (!user) {
-      setError("Invalid email or password");
-      return;
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Invalid email or password");
+        setLoading(false);
+        return;
+      }
+
+      // 🔐 Save token for future APIs & Socket.io
+      localStorage.setItem("kmc_token", data.token);
+
+      // ✅ Let App.js control navigation
+      setUser(data.user);
+    } catch (err) {
+      setError("Server not reachable");
     }
 
-    // ✅ SINGLE SOURCE OF TRUTH (navigation handled in App.js)
-    setUser(user);
+    setLoading(false);
   };
 
   return (
@@ -92,8 +88,12 @@ const AdminLogin = ({ setUser }) => {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button style={styles.button} onClick={handleLogin}>
-            Login
+          <button
+            style={styles.button}
+            onClick={handleLogin}
+            disabled={loading}
+          >
+            {loading ? "Signing in..." : "Login"}
           </button>
 
           <div style={styles.footer}>
