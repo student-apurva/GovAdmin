@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardPage from "./DashboardPage";
 import ManagersPage from "./ManagersPage";
 import DepartmentsPage from "./DepartmentsPage";
@@ -15,6 +15,16 @@ const pageTitles = {
 
 const SystemManagerDashboard = ({ setUser }) => {
   const [activePage, setActivePage] = useState("dashboard");
+  const [dateTime, setDateTime] = useState(new Date());
+
+  /* ================= LIVE CLOCK ================= */
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDateTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const renderPage = () => {
     switch (activePage) {
@@ -37,7 +47,6 @@ const SystemManagerDashboard = ({ setUser }) => {
     <div style={styles.layout}>
       {/* ================= SIDEBAR ================= */}
       <aside style={styles.sidebar}>
-        {/* BRAND */}
         <div>
           <div style={styles.brand}>
             <div style={styles.logo}>KMC</div>
@@ -47,42 +56,15 @@ const SystemManagerDashboard = ({ setUser }) => {
             </div>
           </div>
 
-          {/* MENU */}
           <ul style={styles.menu}>
-            <MenuItem
-              label="Dashboard"
-              value="dashboard"
-              active={activePage}
-              onClick={setActivePage}
-            />
-            <MenuItem
-              label="Managers"
-              value="managers"
-              active={activePage}
-              onClick={setActivePage}
-            />
-            <MenuItem
-              label="Departments"
-              value="departments"
-              active={activePage}
-              onClick={setActivePage}
-            />
-            <MenuItem
-              label="Analytics"
-              value="analytics"
-              active={activePage}
-              onClick={setActivePage}
-            />
-            <MenuItem
-              label="Reports"
-              value="reports"
-              active={activePage}
-              onClick={setActivePage}
-            />
+            <MenuItem label="Dashboard" value="dashboard" active={activePage} onClick={setActivePage} />
+            <MenuItem label="Managers" value="managers" active={activePage} onClick={setActivePage} />
+            <MenuItem label="Departments" value="departments" active={activePage} onClick={setActivePage} />
+            <MenuItem label="Analytics" value="analytics" active={activePage} onClick={setActivePage} />
+            <MenuItem label="Reports" value="reports" active={activePage} onClick={setActivePage} />
           </ul>
         </div>
 
-        {/* LOGOUT */}
         <div style={styles.logout} onClick={() => setUser(null)}>
           Logout
         </div>
@@ -95,9 +77,23 @@ const SystemManagerDashboard = ({ setUser }) => {
           <h1 style={styles.headerTitle}>
             {pageTitles[activePage]}
           </h1>
+
+          {/* 🕒 CLOCK */}
+          <div style={styles.clockBox}>
+            <div style={styles.time}>
+              {dateTime.toLocaleTimeString()}
+            </div>
+            <div style={styles.date}>
+              {dateTime.toLocaleDateString(undefined, {
+                weekday: "long",
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })}
+            </div>
+          </div>
         </header>
 
-        {/* CONTENT */}
         <main style={styles.mainContent}>{renderPage()}</main>
       </div>
     </div>
@@ -128,7 +124,6 @@ const styles = {
     background: "#f4f6f8",
   },
 
-  /* SIDEBAR */
   sidebar: {
     width: 270,
     background: "#0b3c5d",
@@ -158,22 +153,10 @@ const styles = {
     justifyContent: "center",
   },
 
-  brandTitle: {
-    margin: 0,
-    fontSize: 16,
-  },
+  brandTitle: { margin: 0, fontSize: 16 },
+  brandSub: { margin: 0, fontSize: 12, opacity: 0.8 },
 
-  brandSub: {
-    margin: 0,
-    fontSize: 12,
-    opacity: 0.8,
-  },
-
-  menu: {
-    listStyle: "none",
-    padding: 0,
-    margin: 0,
-  },
+  menu: { listStyle: "none", padding: 0, margin: 0 },
 
   menuItem: {
     padding: "12px 16px",
@@ -196,23 +179,34 @@ const styles = {
     cursor: "pointer",
   },
 
-  /* MAIN */
-  mainWrapper: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-  },
+  mainWrapper: { flex: 1, display: "flex", flexDirection: "column" },
 
   header: {
     background: "#ffffff",
     padding: "18px 30px",
     borderBottom: "1px solid #e5e7eb",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
 
-  headerTitle: {
-    margin: 0,
-    fontSize: 22,
+  headerTitle: { margin: 0, fontSize: 22, color: "#0b3c5d" },
+
+  clockBox: {
+    textAlign: "right",
+    fontSize: 14,
+    color: "#374151",
+  },
+
+  time: {
+    fontWeight: 700,
+    fontSize: 16,
     color: "#0b3c5d",
+  },
+
+  date: {
+    fontSize: 12,
+    color: "#6b7280",
   },
 
   mainContent: {

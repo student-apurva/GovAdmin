@@ -23,6 +23,8 @@ const ensureDefaultAdmin = async () => {
       password: hashedPassword,
       role: "system_manager",
       isActive: true,
+      isOnline: false,
+      loginHistory: [],
     });
 
     console.log("✅ Default System Manager created");
@@ -60,6 +62,15 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    /* ===================== 🟢 LOGIN TRACKING ===================== */
+    user.loginHistory.push({
+      loginAt: new Date(),
+    });
+
+    user.isOnline = true;
+    await user.save();
+    /* ============================================================ */
+
     const token = jwt.sign(
       {
         id: user._id,
@@ -80,6 +91,7 @@ router.post("/login", async (req, res) => {
         department: user.department || null,
         enrollmentId: user.enrollmentId || null,
         isActive: user.isActive,
+        isOnline: user.isOnline,
       },
     });
   } catch (err) {
@@ -123,6 +135,8 @@ router.post("/create-manager", auth, async (req, res) => {
       department,
       enrollmentId,
       isActive: isActive !== undefined ? isActive : true,
+      isOnline: false,
+      loginHistory: [],
     });
 
     res.status(201).json({

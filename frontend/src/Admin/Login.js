@@ -7,9 +7,14 @@ const AdminLogin = ({ setUser }) => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (loading) return; // 🔒 prevent double click
+
     setError("");
 
-    if (!email || !password) {
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
       setError("Email and password are required");
       return;
     }
@@ -20,7 +25,10 @@ const AdminLogin = ({ setUser }) => {
       const res = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: cleanEmail,
+          password: cleanPassword,
+        }),
       });
 
       const data = await res.json();
@@ -31,13 +39,13 @@ const AdminLogin = ({ setUser }) => {
         return;
       }
 
-      // 🔐 Save token for future APIs & Socket.io
+      // 🔐 Save token
       localStorage.setItem("kmc_token", data.token);
 
-      // ✅ Let App.js control navigation
+      // ✅ Let App.js decide routing
       setUser(data.user);
     } catch (err) {
-      setError("Server not reachable");
+      setError("Server not reachable. Please try again.");
     }
 
     setLoading(false);
@@ -48,7 +56,9 @@ const AdminLogin = ({ setUser }) => {
       {/* LEFT PANEL */}
       <div style={styles.leftPanel}>
         <h1 style={styles.kmcTitle}>Kolhapur Municipal Corporation</h1>
-        <p style={styles.kmcSubtitle}>Administrative Control System</p>
+        <p style={styles.kmcSubtitle}>
+          Administrative Control System
+        </p>
 
         <ul style={styles.kmcList}>
           <li>✔ Secure Officer Authentication</li>
@@ -66,7 +76,9 @@ const AdminLogin = ({ setUser }) => {
       <div style={styles.rightPanel}>
         <div style={styles.loginBox}>
           <h2 style={styles.heading}>Admin Login</h2>
-          <p style={styles.subHeading}>Authorized Officers Only</p>
+          <p style={styles.subHeading}>
+            Authorized Officers Only
+          </p>
 
           {error && <div style={styles.error}>{error}</div>}
 
@@ -76,7 +88,11 @@ const AdminLogin = ({ setUser }) => {
             type="email"
             placeholder="name@kmc.gov.in"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
           />
 
           <label style={styles.label}>Password</label>
@@ -85,11 +101,19 @@ const AdminLogin = ({ setUser }) => {
             type="password"
             placeholder="Enter password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
           />
 
           <button
-            style={styles.button}
+            style={{
+              ...styles.button,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
             onClick={handleLogin}
             disabled={loading}
           >
@@ -181,7 +205,6 @@ const styles = {
     color: "#fff",
     border: "none",
     borderRadius: "6px",
-    cursor: "pointer",
   },
   error: {
     background: "#ffe0e0",

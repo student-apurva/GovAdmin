@@ -6,8 +6,8 @@ const { Server } = require("socket.io");
 
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
-const managerRoutes = require("./routes/managerRoutes"); // ✅ NEW
-const User = require("./models/User"); // ✅ for online/offline
+const managerRoutes = require("./routes/managerRoutes");
+const User = require("./models/User");
 
 dotenv.config();
 
@@ -29,9 +29,23 @@ io.on("connection", (socket) => {
 
   /* 🔹 MANAGER ONLINE */
   socket.on("managerOnline", async (userId) => {
-    socket.userId = userId; // store for disconnect
-    await User.findByIdAndUpdate(userId, { isOnline: true });
-    console.log(`🟢 Manager online: ${userId}`);
+    try {
+      socket.userId = userId; // store for disconnect
+
+      const user = await User.findById(userId);
+      if (!user) return;
+
+      user.loginHistory.push({
+        loginAt: new Date(),
+      });
+
+      user.isOnline = true;
+      await user.save();
+
+      console.log(`🟢 Manager online: ${userId}`);
+    } catch (err) {
+      console.error("SOCKET ONLINE ERROR:", err.message);
+    }
   });
 
   /* 🔹 JOIN DEPARTMENT ROOM */
@@ -42,24 +56,33 @@ io.on("connection", (socket) => {
 
   /* 🔹 COMPLAINT STATUS UPDATES */
   socket.on("complaintUpdate", (data) => {
-    /*
-      data = {
-        id,
-        status,
-        officer,
-        department
-      }
-    */
     io.to(data.department).emit("complaintUpdated", data);
   });
 
-  /* 🔴 MANAGER OFFLINE */
+  /* 🔴 MANAGER OFFLINE + LOGIN HISTORY UPDATE */
   socket.on("disconnect", async () => {
-    if (socket.userId) {
-      await User.findByIdAndUpdate(socket.userId, { isOnline: false });
+    try {
+      if (!socket.userId) {
+        console.log("🔴 Socket disconnected:", socket.id);
+        return;
+      }
+
+      const user = await User.findById(socket.userId);
+      if (!user) return;
+
+      const last =
+        user.loginHistory[user.loginHistory.length - 1];
+
+      if (last && !last.logoutAt) {
+        last.logoutAt = new Date();
+      }
+
+      user.isOnline = false;
+      await user.save();
+
       console.log(`🔴 Manager offline: ${socket.userId}`);
-    } else {
-      console.log("🔴 Socket disconnected:", socket.id);
+    } catch (err) {
+      console.error("SOCKET OFFLINE ERROR:", err.message);
     }
   });
 });
@@ -73,7 +96,7 @@ connectDB();
 
 /* ================== ROUTES ================== */
 app.use("/api/auth", authRoutes);
-app.use("/api/managers", managerRoutes); // ✅ NEW
+app.use("/api/managers", managerRoutes);
 
 /* ================== START SERVER ================== */
 const PORT = process.env.PORT || 5000;

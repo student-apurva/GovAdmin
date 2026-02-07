@@ -21,3 +21,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+PORT=5000
+MONGO_URI=mongodb+srv://govguest_user:Govguest123@cluster0.hpat6ud.mongodb.net/govadmin
+JWT_SECRET=KMC_SECRET_KEY
