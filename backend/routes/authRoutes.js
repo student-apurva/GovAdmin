@@ -62,14 +62,18 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    /* ===================== 🟢 LOGIN TRACKING ===================== */
+    /* ===================== 🟢 LOGIN TRACKING (SAFE FIX) ===================== */
+    if (!user.loginHistory) {
+      user.loginHistory = [];
+    }
+
     user.loginHistory.push({
       loginAt: new Date(),
     });
 
     user.isOnline = true;
     await user.save();
-    /* ============================================================ */
+    /* ======================================================================= */
 
     const token = jwt.sign(
       {
@@ -103,7 +107,6 @@ router.post("/login", async (req, res) => {
 /* ===================== CREATE DEPARTMENT MANAGER ===================== */
 router.post("/create-manager", auth, async (req, res) => {
   try {
-    /* 🔐 ONLY SYSTEM MANAGER */
     if (req.user.role !== "system_manager") {
       return res.status(403).json({ message: "Not authorized" });
     }
@@ -121,7 +124,6 @@ router.post("/create-manager", auth, async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    /* 🆔 AUTO ENROLLMENT ID */
     const count = await User.countDocuments({ role: "department_manager" });
     const enrollmentId = `KMC-DM-${new Date().getFullYear()}-${String(
       count + 1

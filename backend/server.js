@@ -27,13 +27,18 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
-  /* 🔹 MANAGER ONLINE */
+  /* 🟢 MANAGER ONLINE */
   socket.on("managerOnline", async (userId) => {
     try {
       socket.userId = userId; // store for disconnect
 
       const user = await User.findById(userId);
       if (!user) return;
+
+      /* ✅ SAFE LOGIN HISTORY INIT */
+      if (!user.loginHistory) {
+        user.loginHistory = [];
+      }
 
       user.loginHistory.push({
         loginAt: new Date(),
@@ -48,13 +53,13 @@ io.on("connection", (socket) => {
     }
   });
 
-  /* 🔹 JOIN DEPARTMENT ROOM */
+  /* 📌 JOIN DEPARTMENT ROOM */
   socket.on("joinDepartment", (department) => {
     socket.join(department);
     console.log(`📌 Socket joined department: ${department}`);
   });
 
-  /* 🔹 COMPLAINT STATUS UPDATES */
+  /* 🔁 COMPLAINT STATUS UPDATES */
   socket.on("complaintUpdate", (data) => {
     io.to(data.department).emit("complaintUpdated", data);
   });
@@ -70,6 +75,11 @@ io.on("connection", (socket) => {
       const user = await User.findById(socket.userId);
       if (!user) return;
 
+      /* ✅ SAFE LOGIN HISTORY INIT */
+      if (!user.loginHistory) {
+        user.loginHistory = [];
+      }
+
       const last =
         user.loginHistory[user.loginHistory.length - 1];
 
@@ -80,7 +90,7 @@ io.on("connection", (socket) => {
       user.isOnline = false;
       await user.save();
 
-      console.log(`🔴 Manager offline: ${socket.userId}`);
+      console.log("🔴 User offline:", socket.userId);
     } catch (err) {
       console.error("SOCKET OFFLINE ERROR:", err.message);
     }
