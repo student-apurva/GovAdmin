@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
+import { User, Mail, Building2, ShieldCheck } from "lucide-react";
 
 const socket = io("http://localhost:5000");
 
@@ -8,10 +9,9 @@ const ManagersPage = () => {
   const [selectedManager, setSelectedManager] = useState(null);
   const [managers, setManagers] = useState([]);
   const navigate = useNavigate();
-
   const token = localStorage.getItem("kmc_token");
 
-  /* ================= LOAD MANAGERS ================= */
+  /* LOAD MANAGERS */
   const loadManagers = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/managers", {
@@ -30,7 +30,6 @@ const ManagersPage = () => {
     return () => socket.off("managerStatusUpdate", loadManagers);
   }, []);
 
-  /* ================= TOGGLE ACCESS ================= */
   const toggleAccess = async (_id) => {
     await fetch(`http://localhost:5000/api/managers/toggle/${_id}`, {
       method: "PUT",
@@ -39,84 +38,57 @@ const ManagersPage = () => {
     loadManagers();
   };
 
-  /* ================= DELETE MANAGER ================= */
   const deleteManager = async (_id) => {
     if (!window.confirm("Are you sure you want to delete this manager?")) return;
-
     const res = await fetch(`http://localhost:5000/api/managers/${_id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
-
     if (res.ok) loadManagers();
-    else alert("Failed to delete manager");
-  };
-
-  /* ================= DOWNLOAD MONTHLY LOGIN REPORT ================= */
-  const downloadMonthlyPDF = (name, department, logs) => {
-    const content = `
-KOLHAPUR MUNICIPAL CORPORATION
-Department Manager Attendance Report
-
-Name: ${name}
-Department: ${department}
-
--------------------------------------
-Date | Login Time | Logout Time
--------------------------------------
-${logs
-  .map(
-    (l) =>
-      `${new Date(l.loginAt).toLocaleDateString()} | ${
-        l.loginAt ? new Date(l.loginAt).toLocaleTimeString() : "-"
-      } | ${
-        l.logoutAt ? new Date(l.logoutAt).toLocaleTimeString() : "-"
-      }`
-  )
-  .join("\n")}
-
--------------------------------------
-Generated on: ${new Date().toLocaleString()}
-`;
-
-    const blob = new Blob([content], { type: "text/plain" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${name}_monthly_login_report.txt`;
-    link.click();
   };
 
   return (
-    <div style={{ paddingBottom: 100 }}>
-      <h1 style={{ marginBottom: 24, fontSize: 26 }}>
-        Department Managers
-      </h1>
+    <div style={{ paddingBottom: 120 }}>
 
+      {/* HEADER */}
+      <div style={styles.header}>
+        <div>
+          <h1 style={styles.title}>Department Managers</h1>
+          <p style={styles.subtitle}>
+            Manage access control and monitor department managers
+          </p>
+        </div>
+      </div>
+
+      {/* MANAGER CARDS */}
       {managers.map((m) => (
-        <div key={m._id} style={styles.row}>
-          <div>
-            <div style={styles.nameRow}>
-              <span
-                style={{
-                  ...styles.statusDot,
-                  background: m.isOnline ? "#16a34a" : "#9ca3af",
-                }}
-              />
-              <strong>{m.name}</strong>
-              <span
-                style={{
-                  ...styles.statusText,
-                  color: m.isOnline ? "#16a34a" : "#6b7280",
-                }}
-              >
-                {m.isOnline ? "Online" : "Offline"}
-              </span>
+        <div key={m._id} style={styles.card}>
+
+          <div style={styles.leftSection}>
+            <div style={styles.avatar}>
+              <User size={20} />
             </div>
 
-            <div style={styles.meta}>
-              🏢 {m.department} <br />
-              📧 {m.email} <br />
-              🆔 {m.enrollmentId}
+            <div>
+              <div style={styles.nameRow}>
+                <strong>{m.name}</strong>
+
+                <span
+                  style={{
+                    ...styles.onlineBadge,
+                    background: m.isOnline ? "#dcfce7" : "#f3f4f6",
+                    color: m.isOnline ? "#15803d" : "#6b7280",
+                  }}
+                >
+                  {m.isOnline ? "Online" : "Offline"}
+                </span>
+              </div>
+
+              <div style={styles.meta}>
+                <span><Building2 size={14}/> {m.department}</span>
+                <span><Mail size={14}/> {m.email}</span>
+                <span>🆔 {m.enrollmentId}</span>
+              </div>
             </div>
           </div>
 
@@ -124,7 +96,7 @@ Generated on: ${new Date().toLocaleString()}
             <button
               style={{
                 ...styles.accessBtn,
-                background: m.isActive ? "#15803d" : "#b91c1c",
+                background: m.isActive ? "#15803d" : "#dc2626",
               }}
               onClick={() => toggleAccess(m._id)}
             >
@@ -148,7 +120,7 @@ Generated on: ${new Date().toLocaleString()}
         </div>
       ))}
 
-      {/* ADD MANAGER */}
+      {/* ADD BUTTON */}
       <button
         style={styles.addBtn}
         onClick={() => navigate("/system-manager/add-manager")}
@@ -156,63 +128,34 @@ Generated on: ${new Date().toLocaleString()}
         + Add Manager
       </button>
 
-      {/* ================= VIEW MODAL ================= */}
+      {/* MODAL */}
       {selectedManager && (
         <div style={styles.overlay}>
           <div style={styles.modal}>
-            <h2 style={{ marginBottom: 14 }}>Manager Details</h2>
 
-            <p><b>Name:</b> {selectedManager.name}</p>
-            <p><b>Email:</b> {selectedManager.email}</p>
-            <p><b>Department:</b> {selectedManager.department}</p>
-            <p><b>Enrollment ID:</b> {selectedManager.enrollmentId}</p>
-            <p><b>Status:</b> {selectedManager.isOnline ? "Online" : "Offline"}</p>
-            <p><b>Access:</b> {selectedManager.isActive ? "Enabled" : "Disabled"}</p>
+            <div style={styles.modalHeader}>
+              <div style={styles.modalAvatar}>
+                <ShieldCheck size={26}/>
+              </div>
+              <div>
+                <h2>{selectedManager.name}</h2>
+                <p style={{ fontSize: 13, color: "#6b7280" }}>
+                  {selectedManager.department}
+                </p>
+              </div>
+            </div>
 
-            {/* 🔹 LOGIN ACTIVITY */}
-            <div style={{ marginTop: 14 }}>
-              <h4 style={{ marginBottom: 6 }}>🕘 Login Activity</h4>
-
-              {selectedManager.loginHistory?.length > 0 ? (
-                (() => {
-                  const last =
-                    selectedManager.loginHistory[
-                      selectedManager.loginHistory.length - 1
-                    ];
-
-                  return (
-                    <>
-                      <p>
-                        <b>Today Login:</b>{" "}
-                        {last.loginAt
-                          ? new Date(last.loginAt).toLocaleTimeString()
-                          : "—"}
-                      </p>
-                      <p>
-                        <b>Today Logout:</b>{" "}
-                        {last.logoutAt
-                          ? new Date(last.logoutAt).toLocaleTimeString()
-                          : "Not yet"}
-                      </p>
-                    </>
-                  );
-                })()
-              ) : (
-                <p>No login data available</p>
-              )}
-
-              <button
-                style={styles.pdfBtn}
-                onClick={() =>
-                  downloadMonthlyPDF(
-                    selectedManager.name,
-                    selectedManager.department,
-                    selectedManager.loginHistory || []
-                  )
-                }
-              >
-                📄 Download Monthly Login PDF
-              </button>
+            <div style={styles.modalContent}>
+              <InfoRow label="Email" value={selectedManager.email}/>
+              <InfoRow label="Enrollment ID" value={selectedManager.enrollmentId}/>
+              <InfoRow
+                label="Online Status"
+                value={selectedManager.isOnline ? "Online" : "Offline"}
+              />
+              <InfoRow
+                label="Access Status"
+                value={selectedManager.isActive ? "Enabled" : "Disabled"}
+              />
             </div>
 
             <button
@@ -224,34 +167,89 @@ Generated on: ${new Date().toLocaleString()}
           </div>
         </div>
       )}
+
     </div>
   );
 };
 
 export default ManagersPage;
 
-/* ================= STYLES ================= */
+/* INFO ROW COMPONENT */
+const InfoRow = ({ label, value }) => (
+  <div style={styles.infoRow}>
+    <span style={styles.infoLabel}>{label}</span>
+    <span style={styles.infoValue}>{value}</span>
+  </div>
+);
+
+/* ================= PROFESSIONAL STYLES ================= */
 
 const styles = {
-  row: {
+
+  header: { marginBottom: 25 },
+
+  title: { fontSize: 26, color: "#0b2c48" },
+
+  subtitle: { fontSize: 14, color: "#6b7280" },
+
+  card: {
     background: "#ffffff",
-    padding: "18px 22px",
-    borderRadius: 14,
-    marginBottom: 14,
+    padding: "20px 24px",
+    borderRadius: 16,
+    marginBottom: 16,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+    boxShadow: "0 12px 30px rgba(0,0,0,0.06)",
     border: "1px solid #e5e7eb",
   },
-  nameRow: { display: "flex", alignItems: "center", gap: 10 },
-  statusDot: { width: 10, height: 10, borderRadius: "50%" },
-  statusText: { fontSize: 12, fontWeight: 600 },
-  meta: { fontSize: 13, color: "#4b5563", marginTop: 8 },
-  actions: { display: "flex", gap: 12 },
+
+  leftSection: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+  },
+
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: "50%",
+    background: "linear-gradient(135deg,#0b3c5d,#0f5c8c)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#fff",
+  },
+
+  nameRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  onlineBadge: {
+    padding: "4px 10px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 600,
+  },
+
+  meta: {
+    marginTop: 6,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    fontSize: 13,
+    color: "#4b5563",
+  },
+
+  actions: {
+    display: "flex",
+    gap: 12,
+  },
 
   accessBtn: {
-    padding: "7px 18px",
+    padding: "8px 16px",
     color: "#fff",
     border: "none",
     borderRadius: 20,
@@ -260,7 +258,7 @@ const styles = {
   },
 
   viewBtn: {
-    padding: "7px 18px",
+    padding: "8px 16px",
     background: "#0b3c5d",
     color: "#fff",
     border: "none",
@@ -270,7 +268,7 @@ const styles = {
   },
 
   deleteBtn: {
-    padding: "7px 18px",
+    padding: "8px 16px",
     background: "#dc2626",
     color: "#fff",
     border: "none",
@@ -283,19 +281,20 @@ const styles = {
     position: "fixed",
     bottom: 30,
     left: 320,
-    padding: "14px 26px",
-    background: "linear-gradient(135deg, #0b3c5d, #0f5c8c)",
+    padding: "14px 28px",
+    background: "linear-gradient(135deg,#0b3c5d,#0f5c8c)",
     color: "#fff",
     borderRadius: 999,
     border: "none",
     cursor: "pointer",
     fontWeight: 700,
+    boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
   },
 
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.65)",
+    background: "rgba(0,0,0,0.6)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
@@ -303,29 +302,63 @@ const styles = {
 
   modal: {
     background: "#fff",
-    padding: 26,
-    borderRadius: 16,
-    width: 460,
+    padding: 30,
+    borderRadius: 18,
+    width: 480,
+    boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+  },
+
+  modalHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 15,
+    marginBottom: 20,
+  },
+
+  modalAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: "50%",
+    background: "linear-gradient(135deg,#ff9933,#ff7a00)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#fff",
+  },
+
+  modalContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+
+  infoRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: 10,
+    background: "#f8fafc",
+    borderRadius: 8,
+  },
+
+  infoLabel: {
+    fontSize: 13,
+    color: "#6b7280",
+  },
+
+  infoValue: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#0b2c48",
   },
 
   closeBtn: {
+    marginTop: 20,
     width: "100%",
-    padding: 14,
+    padding: 12,
     background: "#b91c1c",
     color: "#fff",
     border: "none",
     borderRadius: 10,
-    cursor: "pointer",
-    marginTop: 20,
-  },
-
-  pdfBtn: {
-    marginTop: 10,
-    padding: "6px 12px",
-    background: "#2563eb",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
     cursor: "pointer",
     fontWeight: 600,
   },

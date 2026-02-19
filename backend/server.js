@@ -6,8 +6,12 @@ const { Server } = require("socket.io");
 
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
-const managerRoutes = require("./routes/managerRoutes");
+const managerRoutesFactory = require("./routes/managerRoutes");
+const complaintRoutes = require("./routes/complaintRoutes"); // ✅ Added
+const complaintMonitor = require("./cron/complaintMonitor");
+
 const User = require("./models/User");
+const Notification = require("./models/Notification");
 
 dotenv.config();
 
@@ -23,22 +27,28 @@ const io = new Server(server, {
   },
 });
 
+/* ✅ Attach io to Express App */
+app.set("io", io);
+
 /* ================== SOCKET EVENTS ================== */
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
+  /* 🔐 USER JOIN (Personal Room) */
+  socket.on("join", (userId) => {
+    socket.join(userId);
+    console.log(`👤 User joined personal room: ${userId}`);
+  });
+
   /* 🟢 MANAGER ONLINE */
   socket.on("managerOnline", async (userId) => {
     try {
-      socket.userId = userId; // store for disconnect
+      socket.userId = userId;
 
       const user = await User.findById(userId);
       if (!user) return;
 
-      /* ✅ SAFE LOGIN HISTORY INIT */
-      if (!user.loginHistory) {
-        user.loginHistory = [];
-      }
+      if (!user.loginHistory) user.loginHistory = [];
 
       user.loginHistory.push({
         loginAt: new Date(),
@@ -56,15 +66,30 @@ io.on("connection", (socket) => {
   /* 📌 JOIN DEPARTMENT ROOM */
   socket.on("joinDepartment", (department) => {
     socket.join(department);
-    console.log(`📌 Socket joined department: ${department}`);
+    console.log(`📌 Joined department room: ${department}`);
   });
 
-  /* 🔁 COMPLAINT STATUS UPDATES */
-  socket.on("complaintUpdate", (data) => {
-    io.to(data.department).emit("complaintUpdated", data);
+  /* 🔁 COMPLAINT STATUS UPDATE */
+  socket.on("complaintUpdate", async (data) => {
+    try {
+      io.to(data.department).emit("complaintUpdated", data);
+
+      if (data.userId) {
+        const notification = await Notification.create({
+          user: data.userId,
+          message: data.message,
+          complaintId: data.complaintId,
+        });
+
+        io.to(data.userId).emit("newNotification", notification);
+      }
+
+    } catch (err) {
+      console.error("COMPLAINT UPDATE ERROR:", err.message);
+    }
   });
 
-  /* 🔴 MANAGER OFFLINE + LOGIN HISTORY UPDATE */
+  /* 🔴 MANAGER OFFLINE */
   socket.on("disconnect", async () => {
     try {
       if (!socket.userId) {
@@ -75,13 +100,9 @@ io.on("connection", (socket) => {
       const user = await User.findById(socket.userId);
       if (!user) return;
 
-      /* ✅ SAFE LOGIN HISTORY INIT */
-      if (!user.loginHistory) {
-        user.loginHistory = [];
-      }
+      if (!user.loginHistory) user.loginHistory = [];
 
-      const last =
-        user.loginHistory[user.loginHistory.length - 1];
+      const last = user.loginHistory[user.loginHistory.length - 1];
 
       if (last && !last.logoutAt) {
         last.logoutAt = new Date();
@@ -105,8 +126,16 @@ app.use(express.json());
 connectDB();
 
 /* ================== ROUTES ================== */
+
+// ✅ Create managerRoutes with io
+const managerRoutes = managerRoutesFactory(io);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/managers", managerRoutes);
+app.use("/api/complaints", complaintRoutes); // ✅ Complaint route connected
+
+/* ================== CRON ACTIVATION ================== */
+complaintMonitor(io);
 
 /* ================== START SERVER ================== */
 const PORT = process.env.PORT || 5000;

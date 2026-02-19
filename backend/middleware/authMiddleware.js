@@ -10,7 +10,11 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: "No token provided" });
     }
 
-    // ❌ Invalid format
+    // ❌ Invalid format (Must be: Bearer TOKEN)
+    if (!authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Invalid token format" });
+    }
+
     const token = authHeader.split(" ")[1];
     if (!token) {
       return res.status(401).json({ message: "Invalid token format" });
@@ -19,8 +23,9 @@ const authMiddleware = async (req, res, next) => {
     // 🔐 Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 👤 Find user
-    const user = await User.findById(decoded.id);
+    // 👤 Find user (Exclude password for safety)
+    const user = await User.findById(decoded.id).select("-password");
+
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
@@ -32,11 +37,17 @@ const authMiddleware = async (req, res, next) => {
         .json({ message: "Access disabled by System Manager" });
     }
 
-    // ✅ Attach user to request
+    // ✅ Attach full user object
     req.user = user;
+
     next();
   } catch (err) {
     console.error("AUTH ERROR:", err.message);
+
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired" });
+    }
+
     return res.status(401).json({ message: "Unauthorized" });
   }
 };

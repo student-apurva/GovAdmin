@@ -6,20 +6,21 @@ const auth = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-/* ===================== CREATE DEFAULT SYSTEM MANAGER (RUNS ONCE) ===================== */
+/* =========================================================
+   CREATE DEFAULT SYSTEM MANAGER (RUNS ONCE)
+========================================================= */
 const ensureDefaultAdmin = async () => {
   try {
-    const adminExists = await User.findOne({
-      email: "admin@kmc.gov.in",
-    });
+    const adminEmail = "admin@kmc.gov.in";
 
-    if (adminExists) return;
+    const exists = await User.findOne({ email: adminEmail });
+    if (exists) return;
 
-    const hashedPassword = await bcrypt.hash("admin123", 10);
+    const hashedPassword = await bcrypt.hash("admin123", 12);
 
     await User.create({
       name: "System Manager",
-      email: "admin@kmc.gov.in",
+      email: adminEmail,
       password: hashedPassword,
       role: "system_manager",
       isActive: true,
@@ -33,15 +34,16 @@ const ensureDefaultAdmin = async () => {
   }
 };
 
-/* 🔥 EXECUTE ON FILE LOAD */
 ensureDefaultAdmin();
 
-/* ===================== LOGIN ===================== */
+/* =========================================================
+   LOGIN
+========================================================= */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (!email?.trim() || !password?.trim()) {
       return res.status(400).json({ message: "Email and password required" });
     }
 
@@ -50,30 +52,24 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    /* 🔴 BLOCK DISABLED USERS */
     if (!user.isActive) {
-      return res
-        .status(403)
-        .json({ message: "Access disabled by System Manager" });
+      return res.status(403).json({ message: "Access disabled by System Manager" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    /* ===================== 🟢 LOGIN TRACKING (SAFE FIX) ===================== */
-    if (!user.loginHistory) {
-      user.loginHistory = [];
-    }
-
+    // 🔥 Track login
+    user.isOnline = true;
+    user.loginHistory = user.loginHistory || [];
     user.loginHistory.push({
       loginAt: new Date(),
+      logoutAt: null,
     });
 
-    user.isOnline = true;
     await user.save();
-    /* ======================================================================= */
 
     const token = jwt.sign(
       {
@@ -92,28 +88,157 @@ router.post("/login", async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        department: user.department || null,
-        enrollmentId: user.enrollmentId || null,
+        department: user.department,
+        enrollmentId: user.enrollmentId,
         isActive: user.isActive,
         isOnline: user.isOnline,
       },
     });
+
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ===================== CREATE DEPARTMENT MANAGER ===================== */
+/* =========================================================
+   GET CURRENT USER
+========================================================= */
+router.get("/me", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* =========================================================
+   UPDATE PROFILE
+========================================================= */
+router.put("/update-profile", auth, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (name) user.name = name;
+    if (email) user.email = email;
+
+    await user.save();
+
+    res.json({ message: "Profile updated successfully" });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* =========================================================
+   CHANGE PASSWORD
+========================================================= */
+router.put("/change-password", auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) {
+      return res.status(400).json({ message: "Current password incorrect" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    user.password = hashedPassword;
+
+    await user.save();
+
+    res.json({ message: "Password changed successfully" });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+router.post("/logout", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.isOnline = false;
+
+    const last = user.loginHistory[user.loginHistory.length - 1];
+    if (last && !last.logoutAt) {
+      last.logoutAt = new Date();
+    }
+
+    await user.save();
+
+    res.json({ message: "Logged out successfully" });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/* =========================================================
+   VERIFY SYSTEM MANAGER
+========================================================= */
+router.post("/verify-system-manager", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password required" });
+    }
+
+    const user = await User.findOne({
+      email,
+      role: "system_manager",
+      isActive: true,
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "Invalid System Manager credentials" });
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.status(401).json({ message: "Invalid System Manager credentials" });
+    }
+
+    res.json({
+      success: true,
+      message: "System Manager verified successfully",
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* =========================================================
+   CREATE MANAGER
+========================================================= */
 router.post("/create-manager", auth, async (req, res) => {
   try {
     if (req.user.role !== "system_manager") {
-      return res.status(403).json({ message: "Not authorized" });
+      return res.status(403).json({ message: "Only System Manager allowed" });
     }
 
-    const { name, email, password, department, isActive } = req.body;
+    const { name, email, password, department, isActive, role } = req.body;
 
-    if (!name || !email || !password || !department) {
+    if (!name || !email || !password || !role) {
       return res.status(400).json({ message: "All fields required" });
     }
 
@@ -122,31 +247,27 @@ router.post("/create-manager", auth, async (req, res) => {
       return res.status(400).json({ message: "Email already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    const count = await User.countDocuments({ role: "department_manager" });
-    const enrollmentId = `KMC-DM-${new Date().getFullYear()}-${String(
-      count + 1
-    ).padStart(4, "0")}`;
+    let finalRole = role === "System Manager"
+      ? "system_manager"
+      : "department_manager";
 
     await User.create({
       name,
       email,
       password: hashedPassword,
-      role: "department_manager",
-      department,
-      enrollmentId,
-      isActive: isActive !== undefined ? isActive : true,
+      role: finalRole,
+      department: department || null,
+      isActive: isActive ?? true,
       isOnline: false,
       loginHistory: [],
     });
 
-    res.status(201).json({
-      message: "Department Manager created successfully",
-    });
+    res.status(201).json({ message: `${role} created successfully` });
+
   } catch (err) {
-    console.error("CREATE MANAGER ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: err.message });
   }
 });
 
