@@ -58,12 +58,12 @@ export default function SystemManagerDashboard({ setUser }) {
   useEffect(() => {
     const socket = io("http://localhost:5000");
 
-    socket.on("new_notification", (data) => {
+    socket.on("newNotification", (data) => {
       setNotifications(prev => [data, ...prev]);
 
       if (data.type === "urgent") {
         setBlink(true);
-        setTimeout(() => setBlink(false), 1500);
+        setTimeout(() => setBlink(false), 2000);
       }
     });
 
@@ -117,10 +117,12 @@ export default function SystemManagerDashboard({ setUser }) {
   return (
     <div className="appContainer">
 
-      {/* SIDEBAR */}
+      {/* ================= SIDEBAR ================= */}
       <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+
         <div>
           <div className="sidebarTop">
+
             <div className="brand">
               <img
                 src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Emblem_of_India.svg/512px-Emblem_of_India.svg.png"
@@ -137,7 +139,7 @@ export default function SystemManagerDashboard({ setUser }) {
 
             <button
               className="collapseBtn"
-              onClick={() => setCollapsed(!collapsed)}
+              onClick={() => setCollapsed(prev => !prev)}
             >
               <Menu size={20}/>
             </button>
@@ -163,10 +165,9 @@ export default function SystemManagerDashboard({ setUser }) {
         </div>
       </aside>
 
-      {/* MAIN */}
+      {/* ================= MAIN ================= */}
       <div className="main">
 
-        {/* NAVBAR */}
         <header>
           <h1>{pageTitles[activePage]}</h1>
 
@@ -191,8 +192,13 @@ export default function SystemManagerDashboard({ setUser }) {
               {showNotif && (
                 <div className="dropdown">
                   <h4>Notifications</h4>
+
+                  {notifications.length === 0 && (
+                    <p className="emptyText">No notifications</p>
+                  )}
+
                   {notifications.map((n, index) => (
-                    <div key={index} className="notifItem">
+                    <div key={index} className={`notifItem ${n.type}`}>
                       <p>{n.title}</p>
                       <small>{n.message}</small>
                     </div>
@@ -213,7 +219,8 @@ export default function SystemManagerDashboard({ setUser }) {
               />
 
               {showProfile && profile && (
-                <div className="dropdown">
+                <div className="dropdown profileDropdown">
+
                   <div className="profileTop">
                     <div className="avatar">
                       <ShieldCheck size={18}/>
@@ -225,9 +232,7 @@ export default function SystemManagerDashboard({ setUser }) {
 
                       <div className="statusRow">
                         <span className={`statusDot ${profile.isOnline ? "online" : "offline"}`}></span>
-                        <span>
-                          {profile.isOnline ? "Online" : "Offline"}
-                        </span>
+                        {profile.isOnline ? "Online" : "Offline"}
                       </div>
                     </div>
                   </div>
@@ -241,6 +246,7 @@ export default function SystemManagerDashboard({ setUser }) {
                   <div className="dropdownOption logoutOption" onClick={handleLogout}>
                     <LogOut size={16}/> Secure Logout
                   </div>
+
                 </div>
               )}
             </div>
@@ -253,86 +259,58 @@ export default function SystemManagerDashboard({ setUser }) {
           </div>
         </header>
 
-        {/* CONTENT */}
         <main>{renderPage()}</main>
 
       </div>
 
-      {/* STYLES */}
+      {/* ================= CSS ================= */}
       <style>{`
-        * { margin:0; padding:0; box-sizing:border-box; font-family:Poppins, sans-serif; }
+        *{margin:0;padding:0;box-sizing:border-box;font-family:Poppins,sans-serif;}
+        html,body,#root{height:100%;}
 
-        html, body, #root {
-          height:100%;
-        }
+        .appContainer{display:flex;height:100vh;width:100%;background:#f4f6fa;overflow:hidden;}
 
-        .appContainer {
-          display:flex;
-          height:100vh;
-          width:100%;
-          background:#f4f6fa;
-        }
-
-        .sidebar {
+        .sidebar{
           width:260px;
+          min-width:260px;
           background:linear-gradient(180deg,#0b2c48,#071c2f);
           color:white;
-          padding:20px;
+          padding:20px 15px;
           display:flex;
           flex-direction:column;
           justify-content:space-between;
-          transition:all 0.3s ease;
+          transition:width 0.3s ease;
         }
 
-        .sidebar.collapsed {
-          width:80px;
-        }
+        .sidebar.collapsed{width:80px;min-width:80px;}
 
-        .sidebarTop {
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-          margin-bottom:30px;
-        }
+        .sidebarTop{display:flex;justify-content:space-between;align-items:center;margin-bottom:35px;}
+        .brand{display:flex;align-items:center;gap:12px;}
+        .emblem{width:38px;}
 
-        .brand {
-          display:flex;
-          align-items:center;
-          gap:12px;
-        }
+        .brandText h2{font-size:14px;font-weight:600;line-height:1.3;}
+        .brandText p{font-size:11px;opacity:0.7;}
 
-        .emblem { width:38px; }
+        ul{list-style:none;display:flex;flex-direction:column;gap:6px;}
 
-        .brandText h2 {
-          font-size:15px;
-          font-weight:600;
-        }
-
-        .brandText p {
-          font-size:12px;
-          opacity:0.7;
-        }
-
-        ul { list-style:none; }
-
-        li {
-          padding:12px;
+        li{
+          width:100%;
+          padding:12px 14px;
           display:flex;
           align-items:center;
           gap:14px;
           border-radius:8px;
           cursor:pointer;
-          margin-bottom:8px;
           transition:0.2s;
         }
 
-        li:hover { background:rgba(255,153,51,0.2); }
-        li.active { background:rgba(255,153,51,0.3); }
+        li span{font-size:14px;}
+        li:hover{background:rgba(255,153,51,0.2);}
+        li.active{background:rgba(255,153,51,0.35);}
+        .sidebar.collapsed li{justify-content:center;}
+        .sidebar.collapsed li span{display:none;}
 
-        .sidebar.collapsed li span { display:none; }
-        .sidebar.collapsed li { justify-content:center; }
-
-        .logout {
+        .logout{
           background:#b91c1c;
           padding:10px;
           border-radius:8px;
@@ -341,113 +319,120 @@ export default function SystemManagerDashboard({ setUser }) {
           justify-content:center;
           gap:8px;
           cursor:pointer;
+          transition:0.2s;
         }
 
-        .main {
-          flex:1;
-          display:flex;
-          flex-direction:column;
-        }
+        .logout:hover{background:#991b1b;}
 
-        header {
+        .main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+        header{
           background:white;
-          padding:20px 30px;
+          padding:18px 30px;
           display:flex;
           justify-content:space-between;
           align-items:center;
-          box-shadow:0 2px 10px rgba(0,0,0,0.08);
+          box-shadow:0 2px 10px rgba(0,0,0,0.06);
         }
 
-        .rightHeader {
-          display:flex;
-          align-items:center;
-          gap:25px;
-        }
+        header h1{font-size:18px;font-weight:600;}
 
-        .iconBox {
-          position:relative;
-          cursor:pointer;
-        }
+        .rightHeader{display:flex;align-items:center;gap:28px;}
 
-        .badge {
+        .iconBox{position:relative;cursor:pointer;}
+
+        .badge{
           position:absolute;
-          top:-5px;
-          right:-5px;
-          background:red;
+          top:-6px;
+          right:-6px;
+          background:#ef4444;
           color:white;
           font-size:10px;
-          padding:2px 6px;
+          padding:3px 6px;
           border-radius:50%;
         }
 
-        .dropdown {
+        .dropdown{
           position:absolute;
-          top:45px;
+          top:42px;
           right:0;
-          width:280px;
+          width:300px;
+          max-height:380px;
+          overflow-y:auto;
           background:white;
           border-radius:12px;
-          padding:15px;
-          box-shadow:0 15px 40px rgba(0,0,0,0.15);
-          animation:fade 0.2s ease;
+          padding:16px;
+          box-shadow:0 15px 35px rgba(0,0,0,0.12);
+          animation:fadeIn 0.2s ease;
+          z-index:100;
         }
 
-        @keyframes fade {
-          from { opacity:0; transform:translateY(-8px); }
-          to { opacity:1; transform:translateY(0); }
+        .notifItem{
+          padding:10px;
+          border-radius:8px;
+          background:#f9fafb;
+          margin-bottom:8px;
+          transition:0.2s;
         }
 
-        .blinkBell {
-          animation: blinkRed 0.5s ease-in-out 3;
-          color:red;
-        }
+        .notifItem.urgent{background:#fee2e2;}
+        .notifItem:hover{background:#eef2ff;}
 
-        @keyframes blinkRed {
-          0% { opacity:1; }
-          50% { opacity:0; }
-          100% { opacity:1; }
-        }
+        .notifItem p{font-size:13px;font-weight:600;margin-bottom:3px;}
+        .notifItem small{font-size:12px;color:#6b7280;}
 
-        .notifItem {
-          padding:8px 0;
-          border-bottom:1px solid #eee;
-        }
-
-        .profileTop {
-          display:flex;
-          gap:12px;
-          align-items:center;
-        }
-
-        .avatar {
-          width:42px;
-          height:42px;
-          border-radius:50%;
+        .profileTop{display:flex;gap:14px;align-items:center;}
+        .avatar{
+          width:44px;height:44px;border-radius:50%;
           background:linear-gradient(135deg,#ff9933,#ff7a00);
+          display:flex;align-items:center;justify-content:center;color:white;
+        }
+
+        .profileDetails h3{font-size:14px;font-weight:600;}
+        .profileDetails p{font-size:12px;color:#6b7280;margin-top:2px;}
+
+        .statusRow{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;}
+        .statusDot{width:8px;height:8px;border-radius:50%;}
+        .statusDot.online{background:#22c55e;}
+        .statusDot.offline{background:#ef4444;}
+
+        .divider{height:1px;background:#e5e7eb;margin:14px 0;}
+
+        .dropdownOption{
+          padding:8px;
+          border-radius:8px;
           display:flex;
           align-items:center;
-          justify-content:center;
-          color:white;
+          gap:8px;
+          cursor:pointer;
+          transition:0.2s;
+          font-size:13px;
         }
 
-        .divider {
-          height:1px;
-          background:#e5e7eb;
-          margin:12px 0;
+        .dropdownOption:hover{background:#f3f4f6;}
+        .logoutOption{color:#dc2626;}
+
+        .clock{text-align:right;font-size:12px;line-height:1.3;}
+
+        main{flex:1;padding:30px;overflow:auto;}
+
+        @keyframes fadeIn{
+          from{opacity:0;transform:translateY(-8px);}
+          to{opacity:1;transform:translateY(0);}
         }
 
-        main {
-          flex:1;
-          padding:30px;
-          overflow:auto;
+        .blinkBell{
+          animation:blinkRed 0.5s ease-in-out 4;
+          color:#ef4444;
         }
 
-        .clock {
-          font-size:12px;
-          text-align:right;
+        @keyframes blinkRed{
+          0%{opacity:1;}
+          50%{opacity:0;}
+          100%{opacity:1;}
         }
+
       `}</style>
-
     </div>
   );
 }

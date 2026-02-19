@@ -61,7 +61,6 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // 🔥 Track login
     user.isOnline = true;
     user.loginHistory = user.loginHistory || [];
     user.loginHistory.push({
@@ -228,7 +227,7 @@ router.post("/verify-system-manager", async (req, res) => {
 });
 
 /* =========================================================
-   CREATE MANAGER
+   CREATE MANAGER (AUTO PROFESSIONAL ENROLLMENT ID)
 ========================================================= */
 router.post("/create-manager", auth, async (req, res) => {
   try {
@@ -247,11 +246,22 @@ router.post("/create-manager", auth, async (req, res) => {
       return res.status(400).json({ message: "Email already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const finalRole =
+      role === "System Manager"
+        ? "system_manager"
+        : "department_manager";
 
-    let finalRole = role === "System Manager"
-      ? "system_manager"
-      : "department_manager";
+    /* ================= PROFESSIONAL ID FORMAT ================= */
+    let generatedEnrollmentId = null;
+
+    if (finalRole === "department_manager") {
+      const year = new Date().getFullYear();
+      const count = await User.countDocuments({ role: "department_manager" });
+      const nextNumber = (count + 1).toString().padStart(4, "0");
+      generatedEnrollmentId = `KMC-DM-${year}-${nextNumber}`;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     await User.create({
       name,
@@ -259,14 +269,21 @@ router.post("/create-manager", auth, async (req, res) => {
       password: hashedPassword,
       role: finalRole,
       department: department || null,
+      enrollmentId: generatedEnrollmentId,
       isActive: isActive ?? true,
       isOnline: false,
       loginHistory: [],
     });
 
-    res.status(201).json({ message: `${role} created successfully` });
+    res.status(201).json({
+      message:
+        finalRole === "system_manager"
+          ? "System Manager created successfully"
+          : "Department Manager created successfully",
+    });
 
   } catch (err) {
+    console.error("CREATE MANAGER ERROR:", err);
     res.status(500).json({ message: err.message });
   }
 });

@@ -7,7 +7,8 @@ const { Server } = require("socket.io");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const managerRoutesFactory = require("./routes/managerRoutes");
-const complaintRoutes = require("./routes/complaintRoutes"); // ✅ Added
+const complaintRoutes = require("./routes/complaintRoutes");
+const departmentRoutes = require("./routes/departmentRoutes"); // ✅ ADDED
 const complaintMonitor = require("./cron/complaintMonitor");
 
 const User = require("./models/User");
@@ -132,7 +133,8 @@ const managerRoutes = managerRoutesFactory(io);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/managers", managerRoutes);
-app.use("/api/complaints", complaintRoutes); // ✅ Complaint route connected
+app.use("/api/complaints", complaintRoutes);
+app.use("/api/departments", departmentRoutes); // ✅ ADDED HERE
 
 /* ================== CRON ACTIVATION ================== */
 complaintMonitor(io);

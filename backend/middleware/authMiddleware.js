@@ -16,28 +16,29 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
+
     if (!token) {
       return res.status(401).json({ message: "Invalid token format" });
     }
 
-    // 🔐 Verify token
+    // 🔐 Verify token (must match login payload: { id, role })
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 👤 Find user (Exclude password for safety)
+    // 👤 Fetch full user from DB using decoded.id
     const user = await User.findById(decoded.id).select("-password");
 
     if (!user) {
       return res.status(401).json({ message: "User not found" });
     }
 
-    // 🔴 BLOCK DISABLED USERS EVERYWHERE
+    // 🔴 Block disabled users
     if (!user.isActive) {
-      return res
-        .status(403)
-        .json({ message: "Access disabled by System Manager" });
+      return res.status(403).json({
+        message: "Access disabled by System Manager",
+      });
     }
 
-    // ✅ Attach full user object
+    // ✅ Attach full user object (includes role)
     req.user = user;
 
     next();
