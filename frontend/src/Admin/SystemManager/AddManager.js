@@ -210,7 +210,7 @@ const AddManager = () => {
         {accountType === "System Manager" && !verified && (
           <>
             <Field
-              label="Old System Manager Email"
+              label="Current System Manager Email"
               value={verification.email}
               onChange={(e) =>
                 setVerification({ ...verification, email: e.target.value })
@@ -218,7 +218,7 @@ const AddManager = () => {
             />
 
             <Field
-              label="Old System Manager Password"
+              label="Current System Manager Password"
               type="password"
               value={verification.password}
               onChange={(e) =>
